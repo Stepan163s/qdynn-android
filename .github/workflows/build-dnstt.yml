@@ -41,29 +41,22 @@ jobs:
           yes | sdkmanager --licenses
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;23.1.7779620"
 
-      - name: Install gomobile and gobind
-        run: |
-          go env -w GO111MODULE=on
-          go env -w GOPROXY=https://proxy.golang.org,direct
-          go install golang.org/x/mobile/cmd/gobind@latest
-          go install golang.org/x/mobile/cmd/gomobile@latest
-          $HOME/go/bin/gomobile init
-
-      - name: Prefetch x/mobile into module cache
-        working-directory: gomobile/mobile
-        run: |
-          go env -w GO111MODULE=on
-          go get golang.org/x/mobile@latest
-          go get golang.org/x/mobile/bind@latest
-
-      - name: Go mod tidy (ensure go.sum)
+      - name: Prepare Go module and pin x/mobile
         working-directory: gomobile/mobile
         run: |
           go mod tidy
+          go get golang.org/x/mobile@v0.0.0-20230504-cd0990a4935e
+          go get golang.org/x/mobile/bind@v0.0.0-20230504-cd0990a4935e
+
+      - name: Install gomobile and gobind
+        run: |
+          go install golang.org/x/mobile/cmd/gobind@v0.0.0-20230504-cd0990a4935e
+          go install golang.org/x/mobile/cmd/gomobile@v0.0.0-20230504-cd0990a4935e
+          $HOME/go/bin/gomobile init
 
       - name: Verify bind package present
-        run: |
-          go list -f '{{.Dir}}' golang.org/x/mobile/bind
+        working-directory: gomobile/mobile
+        run: go list -f '{{.Dir}}' golang.org/x/mobile/bind
 
       - name: Build AAR
         working-directory: gomobile/mobile
@@ -74,4 +67,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dnstt
-          path: gomobile/dnstt.aar 
+          path: gomobile/dnstt.aar
