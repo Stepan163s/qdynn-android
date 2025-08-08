@@ -9,7 +9,7 @@ import (
     "sync"
     "time"
 
-    _ "github.com/gharib-uk/dnstt/turbotunnel" // ensure module fetched; real client wired later
+    dnstt "github.com/Mygod/dnstt"
 )
 
 // PacketHandler is implemented on the Kotlin side to receive packets from Go.
@@ -32,6 +32,7 @@ type Bridge struct {
     // runtime state
     cancelCtx context.CancelFunc
     sendCh    chan []byte
+    client    *dnstt.Client
 }
 
 func NewBridge() *Bridge { return &Bridge{} }
@@ -63,15 +64,14 @@ func (b *Bridge) Start(domain, password, dns string, handler PacketHandler, logg
 
     b.logf("dnstt Start: domain=%s dns=%s", domain, dns)
 
-    // Parse DNS upstream (udp:/doh:/dot:)
-    upstream, err := parseUpstream(dns)
-    if err != nil {
-        b.logf("invalid dns upstream: %v", err)
-        return
-    }
+    // Initialize real dnstt client
+    // password carries server pubkey (hex) per app contract
+    c := dnstt.NewClient(domain, password, dns)
+    b.mu.Lock()
+    b.client = c
+    b.mu.Unlock()
 
-    // Start minimal mock pipeline for now: echo via timers to keep async path alive
-    go b.runMockClient(ctx, upstream)
+    go b.runReader(ctx)
     go b.runSender(ctx)
 }
 
@@ -114,6 +114,13 @@ func (b *Bridge) Stop() {
 
     if cancel != nil {
         cancel()
+    }
+    b.mu.Lock()
+    cli := b.client
+    b.client = nil
+    b.mu.Unlock()
+    if cli != nil {
+        _ = cli.Close()
     }
     if ch != nil {
         // drain
@@ -158,29 +165,46 @@ func parseUpstream(s string) (upstreamSpec, error) {
 }
 
 func (b *Bridge) runSender(ctx context.Context) {
-    ticker := time.NewTicker(5 * time.Second)
-    defer ticker.Stop()
     for {
         select {
         case <-ctx.Done():
             return
         case p := <-b.sendCh:
-            // TODO: send via real dnstt client; currently simulate immediate ack
             b.mu.RLock()
-            h := b.onPacket
+            cli := b.client
             b.mu.RUnlock()
-            if h != nil {
-                h.OnPacket(p)
+            if cli != nil {
+                if _, err := cli.Write(p); err != nil {
+                    b.logf("write error: %v", err)
+                }
             }
-        case <-ticker.C:
-            // keepalive log
-            b.logf("dnstt keepalive")
         }
     }
 }
 
-func (b *Bridge) runMockClient(ctx context.Context, up upstreamSpec) {
-    b.logf("upstream scheme=%s addr=%s", up.scheme, up.addr)
-    // Placeholder for wiring dnstt client
-    <-ctx.Done()
+func (b *Bridge) runReader(ctx context.Context) {
+    for {
+        select {
+        case <-ctx.Done():
+            return
+        default:
+            b.mu.RLock()
+            cli := b.client
+            h := b.onPacket
+            b.mu.RUnlock()
+            if cli == nil {
+                time.Sleep(50 * time.Millisecond)
+                continue
+            }
+            data, err := cli.Read()
+            if err != nil {
+                b.logf("read error: %v", err)
+                return
+            }
+            if len(data) == 0 || h == nil {
+                continue
+            }
+            h.OnPacket(data)
+        }
+    }
 }
