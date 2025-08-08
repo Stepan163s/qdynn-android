@@ -48,6 +48,13 @@ jobs:
           go install golang.org/x/mobile/cmd/gomobile@latest
           $HOME/go/bin/gomobile init
 
+      - name: Warm module cache for x/mobile/bind
+        run: |
+          mkdir -p /tmp/dummymod
+          cd /tmp/dummymod
+          go mod init dummy
+          go get golang.org/x/mobile/bind@latest
+
       - name: Go mod tidy (ensure go.sum)
         working-directory: gomobile/mobile
         run: |
