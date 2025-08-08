@@ -49,17 +49,21 @@ jobs:
           go install golang.org/x/mobile/cmd/gomobile@latest
           $HOME/go/bin/gomobile init
 
-      - name: Warm module cache for x/mobile/bind
+      - name: Prefetch x/mobile into module cache
+        working-directory: gomobile/mobile
         run: |
-          mkdir -p /tmp/dummymod
-          cd /tmp/dummymod
-          go mod init dummy
+          go env -w GO111MODULE=on
+          go get golang.org/x/mobile@latest
           go get golang.org/x/mobile/bind@latest
 
       - name: Go mod tidy (ensure go.sum)
         working-directory: gomobile/mobile
         run: |
           go mod tidy
+
+      - name: Verify bind package present
+        run: |
+          go list -f '{{.Dir}}' golang.org/x/mobile/bind
 
       - name: Build AAR
         working-directory: gomobile/mobile
