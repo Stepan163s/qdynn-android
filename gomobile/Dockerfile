@@ -37,4 +37,4 @@ COPY mobile /work/mobile
 
 # Build the AAR
 RUN cd /work/mobile && \
-    /root/go/bin/gomobile bind -androidapi 24 -target=android -o /work/dnstt.aar . 
+    /root/go/bin/gomobile bind -androidapi 24 -target=android -javapkg com.qdynn.dnstt.mobile -o /work/dnstt.aar .
