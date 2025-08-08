@@ -9,7 +9,7 @@ import (
     "sync"
     "time"
 
-    _ "github.com/gharib-uk/dnstt/turbotunnel" // ensure module fetched; real client wired later
+    // _ "github.com/gharib-uk/dnstt/turbotunnel" // ensure module fetched; real client wired later
 )
 
 // PacketHandler is implemented on the Kotlin side to receive packets from Go.
