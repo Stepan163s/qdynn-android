@@ -19,3 +19,7 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Keep gomobile-generated classes and interfaces used via reflection
+-keep class com.qdynn.dnstt.mobile.** { *; }
+-keep interface com.qdynn.dnstt.mobile.** { *; }
